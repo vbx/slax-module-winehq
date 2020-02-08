@@ -1,0 +1,9 @@
+[all:vars]
+ansible_connection=ssh
+ansible_port=2222
+ansible_user=root
+ansible_ssh_pass=toor
+ansible_ssh_host=127.0.0.1
+
+[slax]
+127.0.0.1

@@ -1,0 +1,12 @@
+---
+- hosts: slax
+  gather_facts: no
+  tasks:
+    - name: "Wait until {{ slax_version }} is ready..."
+      wait_for_connection:
+        connect_timeout: 5
+        timeout: 60
+
+    - name: Install winehq
+      include_role:
+        name: winehq

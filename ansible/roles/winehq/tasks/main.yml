@@ -1,0 +1,114 @@
+- name: Enable 32/64bit archi
+  with_items: [i386, amd64]
+  lineinfile:
+    path: /var/lib/dpkg/arch
+    regex: '{{item}}'
+    line: '{{item}}'
+    create: yes
+
+- name: Get apt key
+  apt_key:
+    url: https://dl.winehq.org/wine-builds/winehq.key
+    state: present
+
+- name: Install dep pkg
+  apt: 
+    name: apt-transport-https 
+    update_cache: yes
+    install_recommends: yes
+
+- name: Add apt repo for stretch
+  apt_repository:
+    repo: deb https://dl.winehq.org/wine-builds/debian/ stretch main
+    state: present
+    update_cache: yes
+    filename: winehq
+
+- name: Install winehq-stable
+  apt:
+    name: winehq-stable
+    update_cache: yes
+    install_recommends: yes
+
+- name: Ensures ~/.cache/wine/ dir exists
+  file: 
+    path: ~/.cache/wine/ 
+    state: directory
+
+- name: Download wine Mono #https://wiki.winehq.org/Mono
+  get_url:
+    url: http://dl.winehq.org/wine/wine-mono/4.9.4/wine-mono-4.9.4.msi
+    dest: ~/.cache/wine/
+
+- name: Download wine Gecko #https://wiki.winehq.org/Gecko
+  with_items: 
+    - http://dl.winehq.org/wine/wine-gecko/2.47.1/wine-gecko-2.47.1-x86.msi
+    - http://dl.winehq.org/wine/wine-gecko/2.47.1/wine-gecko-2.47.1-x86_64.msi
+  get_url:
+    url: "{{ item }}"
+    dest: ~/.cache/wine/
+
+- name: Check ~/.wine/ exists
+  stat:
+    path: ~/.wine/
+  register: wine_dir
+
+- name: install ~/.wine
+  command: winecfg
+  when: wine_dir.stat.exists == False
+
+- name: Remove ~/.cache
+  file:
+    path: ~/.cache
+    state: absent
+
+- name: Add launcher for application/x-ms-dos-executable
+  blockinfile:
+    path: /root/.local/share/applications/wine.desktop
+    create: yes
+    block: |
+      [Desktop Entry] 
+      Type=Application 
+      Name=Wine 
+      Exec=sh -c 'cd $(dirname %f) && wine $(basename %f)' 
+      Categories=Other; 
+      NoDisplay=false 
+      MimeType=application/x-ms-dos-executable 
+      Terminal=true 
+      X-KeepTerminal=true
+
+- name: Check layer exists
+  stat:
+    path: /tmp/winehq-stable.sb
+  register: winehqlayer
+
+- name: Save layer
+  command: savechanges /tmp/winehq-stable.sb
+  when: winehqlayer.stat.exists == False
+
+- name: Check layer exists
+  stat:
+    path: /tmp/winehq-stable.sb
+  register: winehqlayer  
+
+- name: Edit layer
+  command: sb2dir winehq-stable.sb  
+  args:
+    chdir: /tmp
+
+- name: purge files after savechanges
+  args:
+    chdir: /tmp/winehq-stable.sb/root
+  command: "rm -rf !(.wine|.local)"
+
+- name: dir2sb winehq-stable.sb
+  command: dir2sb winehq-stable.sb
+  args:
+    chdir: /tmp
+
+- name: copy layer
+  fetch:
+    src: /tmp/winehq-stable.sb
+    dest: ../
+    flat: yes
+
